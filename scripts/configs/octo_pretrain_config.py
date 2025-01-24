@@ -3,6 +3,8 @@ import imp
 import os
 
 from ml_collections import ConfigDict, FieldReference
+from octo.model.components.vit_encoders import PatchEncoder
+
 
 get_base_config = imp.load_source(
     "config", os.path.join(os.path.dirname(__file__), "config.py")
@@ -24,6 +26,7 @@ def update_config(config, **kwargs):
 
 
 def get_config(config_string=None):
+    print("Kevin was here in octo_pretrain_config.py")
     config = get_base_config(config_string)
 
     action_dim = FieldReference(7)
@@ -33,13 +36,15 @@ def get_config(config_string=None):
             ImageTokenizer,
             obs_stack_keys=["image_primary"],
             task_stack_keys=["image_primary"],
-            encoder=ModuleSpec.create(SmallStem16),
+            # encoder=ModuleSpec.create(SmallStem16),
+            encoder=ModuleSpec.create(PatchEncoder),  # PatchEncoder wird hier verwendet
         ),
         "wrist": ModuleSpec.create(
             ImageTokenizer,
             obs_stack_keys=["image_wrist"],
             task_stack_keys=["image_wrist"],
-            encoder=ModuleSpec.create(SmallStem16),
+            # encoder=ModuleSpec.create(SmallStem16),
+            encoder=ModuleSpec.create(PatchEncoder),  # PatchEncoder wird hier verwendet
         ),
     }
     config["model"]["task_tokenizers"] = {

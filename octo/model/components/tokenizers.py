@@ -147,6 +147,7 @@ class ImageTokenizer(nn.Module):
                 {"cond_var": jnp.reshape(film_inputs, (b * t, -1))}
             )
 
+        print("self.encoder", self.encoder)
         # run visual encoder
         encoder_def = ModuleSpec.instantiate(self.encoder)()
         image_tokens = encoder_def(enc_inputs, **encoder_input_kwargs)

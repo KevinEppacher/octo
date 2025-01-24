@@ -20,6 +20,8 @@ from octo.model.components.action_heads import ActionHead
 from octo.model.octo_module import OctoModule
 from octo.utils.spec import ModuleSpec
 from octo.utils.typing import Config, Data, Params, PRNGKey, Sequence
+from octo.model.components.tokenizers import ImageTokenizer, LanguageTokenizer
+from octo.model.components.vit_encoders import CLIPWrapper
 
 
 @struct.dataclass
@@ -263,7 +265,6 @@ class OctoModel:
             checkpoint_path (str): A path to either a directory of checkpoints or a single checkpoint.
             step (int, optional): If multiple checkpoints are present, which one to load. Defaults to the latest.
         """
-        print("HIER IST KEVIN")
         if checkpoint_path.startswith("hf://"):
             if step:
                 raise ValueError(
@@ -284,6 +285,29 @@ class OctoModel:
             config["model"]["heads"]["action"]["kwargs"]["action_horizon"] = config[
                 "model"
             ]["heads"]["action"]["kwargs"].pop("pred_horizon")
+
+        # print("Config before change: ", config)
+
+        # # änderung nur im observation_tokenzier array eintrag
+        # config["model"]["observation_tokenizers"] = {
+        #     "primary": ModuleSpec.create(
+        #         ImageTokenizer,
+        #         obs_stack_keys=["image_primary"],
+        #         task_stack_keys=["image_primary"],
+        #         encoder=ModuleSpec.create(CLIPWrapper),
+        #     ),
+        #     "wrist": ModuleSpec.create(
+        #         ImageTokenizer,
+        #         obs_stack_keys=["image_wrist"],
+        #         task_stack_keys=["image_wrist"],
+        #         encoder=ModuleSpec.create(CLIPWrapper),
+        #     ),
+        # }
+
+        # print("Config after change: ", config)
+
+
+
 
         # load example batch
         with tf.io.gfile.GFile(

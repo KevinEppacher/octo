@@ -14,6 +14,11 @@ import jax.numpy as jnp
 
 from octo.model.components.film_conditioning_layer import FilmConditioning
 
+import flax.linen as nn
+import jax.numpy as jnp
+from transformers import CLIPVisionModel, CLIPFeatureExtractor
+# from cv2 import cv2 as cv
+
 T = TypeVar("T")
 
 
@@ -63,7 +68,7 @@ class PatchEncoder(nn.Module):
 
     The default "encoder" used by most ViTs in practice.
     """
-
+    ' Hier sollten Änderungen vorgenommen werden, um das Vision-Backbone zu ändern (denk ich)'
     use_film: bool = False
     patch_size: int = 32
     num_features: int = 512
@@ -77,6 +82,9 @@ class PatchEncoder(nn.Module):
             expecting_cond_var == received_cond_var
         ), "Only pass in cond var iff model expecting cond var"
         x = normalize_images(observations, self.img_norm_type)
+        print("Hier ist Kevin in der PatchEncoder Klasse")
+
+
         x = nn.Conv(
             features=self.num_features,
             kernel_size=(self.patch_size, self.patch_size),
@@ -108,6 +116,7 @@ class SmallStem(nn.Module):
 
     @nn.compact
     def __call__(self, observations: jnp.ndarray, train: bool = True, cond_var=None):
+        print("Hier ist Kevin in der SmallStem Klasse")
         expecting_cond_var = self.use_film
         received_cond_var = cond_var is not None
         assert (
@@ -263,6 +272,25 @@ class ViTResnet(nn.Module):
                 x = FilmConditioning()(x, cond_var)
 
         return x
+
+
+class CLIPWrapper(nn.Module):
+    model_name: str = "openai/clip-vit-base-patch16"
+
+    @nn.compact
+    def __call__(self, observations: jnp.ndarray, train: bool = True, cond_var=None):
+        # CLIP Feature Extractor (sorgt für richtige Größe)
+        feature_extractor = CLIPFeatureExtractor.from_pretrained(self.model_name)
+        pixel_values = feature_extractor(images=observations, return_tensors="pt")["pixel_values"]
+
+        # Lade CLIP Vision Model
+        clip_vision_encoder = CLIPVisionModel.from_pretrained(self.model_name)
+        outputs = clip_vision_encoder(pixel_values=pixel_values)
+
+        return outputs.last_hidden_state
+
+
+
 
 
 class SmallStem16(SmallStem):

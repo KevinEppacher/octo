@@ -7,6 +7,8 @@ from octo.model.components.tokenizers import ImageTokenizer
 from octo.model.components.transformer import common_transformer_sizes
 from octo.model.components.vit_encoders import SmallStem16
 from octo.utils.spec import ModuleSpec
+from octo.model.components.vit_encoders import PatchEncoder
+
 
 
 def get_config(
@@ -84,7 +86,8 @@ def get_model_config(transformer_size):
                 obs_stack_keys=["image_.*"],
                 task_stack_keys=["image_.*"],
                 task_film_keys=["language_instruction"],
-                encoder=ModuleSpec.create(SmallStem16, use_film=True),
+                # encoder=ModuleSpec.create(SmallStem16, use_film=True),
+                encoder=ModuleSpec.create(PatchEncoder, use_film=True),
             ),
         ),
         task_tokenizers=dict(),

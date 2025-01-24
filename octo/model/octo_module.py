@@ -16,6 +16,88 @@ from octo.model.components.block_transformer import (
 from octo.utils.spec import ModuleSpec
 from octo.utils.typing import Data, Sequence
 
+from transformers import CLIPVisionModel, CLIPImageProcessor  # ✅ Correct import
+
+from transformers import CLIPVisionModel, CLIPImageProcessor
+import flax.linen as nn
+import jax.numpy as jnp
+
+from transformers import CLIPVisionModel, CLIPImageProcessor
+import flax.linen as nn
+import jax.numpy as jnp
+import numpy as np
+
+from transformers import CLIPVisionModel, CLIPImageProcessor
+import flax.linen as nn
+import jax.numpy as jnp
+import numpy as np
+import jax
+
+
+import jax
+import jax.numpy as jnp
+import numpy as np
+from transformers import CLIPVisionModel, CLIPImageProcessor
+import flax.linen as nn
+
+class CLIPVisionEncoder(nn.Module):
+    model_name: str = "openai/clip-vit-base-patch32"
+
+    def setup(self):
+        self.clip_model = CLIPVisionModel.from_pretrained(self.model_name)
+        self.feature_extractor = CLIPImageProcessor.from_pretrained(self.model_name)
+
+    def __call__(self, observations, tasks, train=True):
+        print(f"🔍 CLIPVisionEncoder received observations keys: {observations.keys()}")
+
+        images = observations.get("image_primary", None)
+        if images is None:
+            images = observations.get("image_wrist", None)
+
+        if images is None:
+            print("⚠️ No valid images found in observations!")
+            return None  
+
+        print(f"📏 Original image shape: {images.shape}")
+
+        # ✅ **Fix: Use `jax.device_get()` to extract data from JAX tracer**
+        if isinstance(images, jax.Array) or isinstance(images, jnp.ndarray):
+            print("🔄 JAX array detected! Using jax.device_get() to extract NumPy data...")
+            images = jax.device_get(images)  # ✅ Convert JAX array to NumPy-compatible format
+
+        # ✅ Ensure correct shape (B, H, W, C)
+        if len(images.shape) == 5:
+            images = images.squeeze(0)  # Remove extra batch dim
+            print(f"✅ After squeeze: {images.shape}")
+
+        if len(images.shape) not in [3, 4]:
+            raise ValueError(f"🚨 Incorrect image shape: {images.shape}")
+
+        print(f"📏 Final image shape before processing: {images.shape}")
+
+        # ✅ Ensure NumPy input for CLIP
+        images = np.asarray(images)
+
+        # ✅ Preprocess with CLIP
+        pixel_values = self.feature_extractor(images=images, return_tensors="np")["pixel_values"]
+
+        # ✅ Convert back to JAX for the model
+        pixel_values = jnp.array(pixel_values)
+
+        print(f"📏 Processed image shape: {pixel_values.shape}")
+
+        # ✅ Get CLIP embeddings
+        outputs = self.clip_model(pixel_values)
+
+        return {
+            "tokens": outputs.pooler_output,
+            "mask": jnp.ones_like(outputs.pooler_output[..., 0])
+        }
+
+
+
+
+
 
 class OctoTransformer(nn.Module):
     """
@@ -186,13 +268,27 @@ class OctoTransformer(nn.Module):
         # Next, add the observation tokens
         #
 
+        # for name, tok in self.observation_tokenizers.items():
+        #     group_name = f"obs_{name}"
+        #     # Receive inputs from tokenizer and cast to embedding size
+        #     tokenizer_output: TokenGroup = tok(observations, tasks, train=train)
+        #     if tokenizer_output is None:
+        #         logging.warning(f"Skipping observation tokenizer: {group_name}")
+        #         continue
+
+
+
         for name, tok in self.observation_tokenizers.items():
             group_name = f"obs_{name}"
-            # Receive inputs from tokenizer and cast to embedding size
+            print(f"Processing tokenizer: {group_name}")  # Debugging line ✅
+
             tokenizer_output: TokenGroup = tok(observations, tasks, train=train)
+            
             if tokenizer_output is None:
-                logging.warning(f"Skipping observation tokenizer: {group_name}")
+                print(f"Skipping observation tokenizer: {group_name} (Returned None)")  # Debugging line ✅
                 continue
+
+
 
             obs_tokens = nn.Dense(
                 self.token_embedding_size, name=f"{group_name}_projection"
@@ -274,6 +370,18 @@ class OctoTransformer(nn.Module):
             self.transformer_kwargs.get("add_position_embedding", False) is False
         ), "Already added positional embeddings to the tokens"
 
+
+
+
+
+
+
+
+
+
+
+
+
         prefix_outputs, timestep_outputs = BlockTransformer(
             self.transformer_kwargs, use_correct_attention=self.use_correct_attention
         )(
@@ -282,6 +390,19 @@ class OctoTransformer(nn.Module):
             train=train,
             verbose=verbose,
         )
+
+
+
+
+
+
+
+
+
+
+
+
+
         outputs = {}
         outputs.update(
             {
@@ -400,10 +521,29 @@ class OctoModule(nn.Module):
                 attention_dropout_rate (float): dropout rate in self attention.
         """
 
-        observation_tokenizer_defs = {
-            k: ModuleSpec.instantiate(spec)()
-            for k, spec in observation_tokenizers.items()
+        # observation_tokenizers = {
+        #     "clip_vision": CLIPVisionEncoder(),  # Directly instantiate the class
+        # }
+
+        observation_tokenizers = {
+            "clip_vision": ModuleSpec(
+                module=__name__,
+                name="CLIPVisionEncoder",
+                args=[],
+                kwargs={"model_name": "openai/clip-vit-base-patch32"},
+            ),
         }
+
+        observation_tokenizer_defs = {
+            k: ModuleSpec.instantiate(spec)() for k, spec in observation_tokenizers.items()
+        }
+
+        # observation_tokenizer_defs = {
+        #     k: ModuleSpec.instantiate(spec)()
+        #     for k, spec in observation_tokenizers.items()
+        # }
+
+
         task_tokenizer_defs = {
             k: ModuleSpec.instantiate(spec)() for k, spec in task_tokenizers.items()
         }
